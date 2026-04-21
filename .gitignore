@@ -1,0 +1,16 @@
+# Python 관련 캐시 및 컴파일 파일
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+
+# 데이터베이스 및 데이터 파일
+data/raw/*.csv
+data/processed/*.csv
+outputs/tables/*.csv
+
+
+# OS 및 에디터 설정
+Thumbs.db
+.vscode/
+.ipynb_checkpoints/

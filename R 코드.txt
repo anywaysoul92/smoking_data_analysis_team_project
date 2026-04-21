@@ -1,0 +1,278 @@
+# 1. 충치
+# 1. 데이터 불러오기 (앞서 설정한 작업 디렉토리에 파일이 있다고 가정)
+data1 <- read.csv("smoking_health_processed.csv")
+
+# 2. 데이터 확인 (제대로 불러왔는지 상위 6개 행 확인)
+head(data1)
+
+# 3. 가독성을 위해 요인(Factor)으로 변환 및 라벨링
+# label: 0=비흡연, 1=흡연
+# dental_caries: 0=없음, 1=있음 (데이터가 0과 1로 되어 있다고 가정)
+data1$Smoking_Status <- factor(data1$label, 
+                              levels = c(0, 1), 
+                              labels = c("비흡연", "흡연"))
+
+data1$Caries_Status <- factor(data1$dental_caries, 
+                             levels = c(0, 1), 
+                             labels = c("충치 없음", "충치 있음"))
+
+# 4. 교차표(Contingency Table) 생성
+# 흡연 여부에 따른 충치 발생 빈도를 확인합니다.
+contingency_table <- table(data1$Smoking_Status, data1$Caries_Status)
+
+print("=== [교차표 확인] ===")
+print(contingency_table)
+
+# 5. 카이제곱 독립성 검정 수행
+chisq_result <- chisq.test(contingency_table)
+
+print("=== [카이제곱 검정 결과] ===")
+print(chisq_result)
+
+# =====
+
+# 혈액 기능 수치(헤모글로빈) ↔ 흡연 여부 + 나이 (연속형 중심)
+
+# 0: 비흡연, 1: 흡연
+print("=== [그룹별 헤모글로빈 평균] ===")
+group_means <- tapply(data1$hemoglobin, data1$label, mean)
+print(group_means)
+
+# 독립 표본 t-test 수행 (Two-sample t-test)
+# 공식: t.test(종속변수 ~ 독립변수, data = 데이터)
+t_test_result <- t.test(hemoglobin ~ label, data = data1)
+
+print("=== [t-test 검정 결과] ===")
+print(t_test_result)
+
+# 시각화: 상자 그림(Boxplot)으로 분포 비교
+boxplot(hemoglobin ~ label, data = data1,
+        names = c("non-smokers(0)", "smokers(1)"),
+        col = c("lightblue", "salmon"),
+        main = "Comparison of hemoglobin levels by smoking status",
+        ylab = "Hemoglobin",
+        xlab = "")
+
+# 다중회귀분석 모델 생성
+# 공식: 종속변수 ~ 독립변수 + 통제변수
+# 해석: 헤모글로빈 수치를 '흡연 여부'와 '나이'로 설명
+model <- lm(hemoglobin ~ label + age, data = data1)
+
+# 3. 분석 결과 요약 출력
+print("=== [다중회귀분석 결과 요약] ===")
+summary(model)
+
+# 4. (선택사항) 결과 신뢰구간 확인 (95%)
+confint(model)
+
+# 2-1. 라이브러리 로드 (시각화를 위해 ggplot2가 필요합니다)
+# 만약 설치가 안 되어 있다면 install.packages("ggplot2")를 먼저 실행하세요.
+library(ggplot2)
+
+# 2-2. 나이(age)를 10세 단위 범주형(age_group)으로 변환
+# 20부터 80까지 10단위로 자르고, 80 이상은 하나로 묶습니다.
+data1$age_group_new <- cut(data1$age, 
+                           breaks = c(20, 30, 40, 50, 60, 70, 80, Inf),
+                           labels = c("20s", "30s", "40s", "50s", "60s", "70s", "over 80"),
+                           right = FALSE) # 예: 20 <= x < 30
+
+# 2-3. 라벨링 (그래프에 0, 1 대신 글자로 나오게 하기 위함)
+data1$Smoking_Status <- factor(data1$label, 
+                               levels = c(0, 1), 
+                               labels = c("non-smokers", "smokers"))
+
+# 2-4. 연령대별 그룹 박스플롯 그리기
+ggplot(data1, aes(x = age_group_new, y = hemoglobin, fill = Smoking_Status)) +
+  geom_boxplot() +
+  
+  # 디자인 요소 설정
+  theme_minimal() + 
+  scale_fill_manual(values = c("lightblue", "salmon")) + # 색상 설정
+  
+  # 제목 및 축 이름 설정
+  labs(title = "Differences after controlling for age",
+       subtitle = "Are the numbers of smokers high across all age groups?",
+       x = "Age Group",
+       y = "Hemoglobin",
+       fill = "smoke") +
+  
+  # 텍스트 크기 조정
+  theme(plot.title = element_text(face = "bold", size = 15),
+        axis.text = element_text(size = 12))
+
+# =====
+
+# 대사 지표(혈당/지질) ↔ 흡연 여부 (연속형 + 파생변수)
+
+data1$tg_hdl_ratio <- data1$triglycerides / data1$hdl
+
+# 정규분포 확인 전 화면 분할 설정 (2행 2열: 총 4개의 그래프를 한 번에 보기 위함)
+par(mfrow = c(2, 2))
+
+# [변환 전: Original Data]
+
+# 3-1. 히스토그램 (분포 모양 확인)
+hist(data1$tg_hdl_ratio, 
+     main = "before log transform : TG/HDL distribution", 
+     xlab = "Ratio", 
+     col = "lightgray", 
+     breaks = 30) # 막대 개수
+
+# 3-2. Q-Q Plot (정규성 확인 - 직선에 가까울수록 정규분포)
+qqnorm(data1$tg_hdl_ratio, main = "before log transfomation: Q-Q Plot")
+qqline(data1$tg_hdl_ratio, col = "red", lwd = 2)
+
+
+# [변환 후: Log Transformed Data]
+
+# 4-1. 히스토그램 (로그 변환 후 분포)
+hist(log(data1$tg_hdl_ratio), 
+     main = "after log transfomation: Log(TG/HDL) distribution", 
+     xlab = "Log(Ratio)", 
+     col = "lightblue", 
+     breaks = 30)
+
+# 4-2. Q-Q Plot (로그 변환 후 정규성)
+qqnorm(log(data1$tg_hdl_ratio), main = "after log transformation: Q-Q Plot")
+qqline(log(data1$tg_hdl_ratio), col = "red", lwd = 2)
+
+# 5. 화면 분할 초기화 (필수)
+par(mfrow = c(1, 1))
+
+
+# 파생변수 생성: TG / HDL 비율
+# DL이 0인 데이터가 없다고 가정
+data1$tg_hdl_ratio <- data1$triglycerides / data1$hdl
+
+# 로그 변환이 포함된 다중회귀분석 수행
+# Y: log(TG/HDL 비율)
+# X: label (흡연 여부)
+# 통제변수: age, bmi
+model_metabolic <- lm(log(tg_hdl_ratio) ~ label + age + bmi, data = data1)
+
+# 4. 결과 요약 출력
+print("=== [다중회귀분석 결과 (Log-Level 모델)] ===")
+summary(model_metabolic)
+
+# 5. 결과 해석을 위한 계수 변환 (Log -> Percentage)
+# 로그 모델에서 계수(Beta)를 % 변화율로 해석하기 위한 공식: (exp(beta) - 1) * 100
+# 모델에서 계수(Beta)와 95% 신뢰구간(CI) 추출
+# confint(model_metabolic)은 신뢰구간을 구해줍니다.
+results <- cbind(
+  Beta = coef(model_metabolic),             # 원래 회귀계수
+  CI_Lower = confint(model_metabolic)[,1],  # 95% 신뢰구간 하한
+  CI_Upper = confint(model_metabolic)[,2]   # 95% 신뢰구간 상한
+)
+
+# 로그를 풀어서 지수화(Exponentiation) -> 배수(Ratio)로 변환
+# 이것이 "몇 배가 되었는지" 보여주는 값입니다.
+exp_results <- exp(results)
+
+# 보기 좋게 데이터프레임으로 정리 및 반올림
+final_table <- data.frame(round(exp_results, 4))
+
+# 열 이름 변경 (가독성)
+colnames(final_table) <- c("Exp(B) [Ratio]", "95% CI Lower", "95% CI Upper")
+
+# 결과 출력
+print("=== [전통적인 방식: 지수화된 회귀계수 및 신뢰구간] ===")
+print(final_table)
+
+# 해석 예시 출력 (흡연 변수만)
+smoking_ratio <- final_table["label", "Exp(B) [Ratio]"]
+percent_change <- (smoking_ratio - 1) * 100
+
+print("=== [해석 가이드] ===")
+cat(sprintf("흡연 변수(label)의 Exp(B) 값은 %.4f입니다.\n", smoking_ratio))
+cat(sprintf("이는 흡연자가 비흡연자에 비해 지표가 %.2f%% 높다는 것을 의미합니다.\n", percent_change))
+
+
+# =====
+
+#신장기능 지표(요단백, 크레아티닌) ↔ 흡연 여부
+
+# 요단백 데이터를 '유무(Binary)'로 변환
+# 가정: urine_protein 수치가 1이면 '정상', 1보다 크면 '단백뇨 의심/있음'
+data1$Proteinuria_Status <- ifelse(data1$urine_protein > 1, 
+                                   "urine protein(Positive)", 
+                                   "Normal")
+
+# 라벨링 (가독성을 위해)
+data1$Smoking_Label <- factor(data1$label, 
+                              levels = c(0, 1), 
+                              labels = c("non-smokers", "smokers"))
+
+# 교차표(Contingency Table) 생성
+# 행(Row): 흡연 여부, 열(Column): 단백뇨 유무
+cross_table <- table(data1$Smoking_Label, data1$Proteinuria_Status)
+
+print("=== [흡연 여부 x 단백뇨 유무 교차표] ===")
+print(cross_table)
+
+# 비율(%) 확인
+# 1번 축(행) 기준으로 백분율 계산 -> 흡연자 중 몇 %가 단백뇨인지 확인
+prop_table <- prop.table(cross_table, margin = 1) * 100
+
+print("=== [그룹별 단백뇨 발생 비율(%)] ===")
+print(round(prop_table, 2))
+
+# 카이제곱 독립성 검정
+chisq_result <- chisq.test(cross_table)
+
+print("=== [카이제곱 검정 결과] ===")
+print(chisq_result)
+
+# (선택사항) 시각화: 비율 비교 막대그래프
+barplot(t(prop_table), 
+        beside = TRUE, 
+        legend.text = TRUE, 
+        col = c("lightblue", "salmon"),
+        main = "Comparison of positive proteinuria rates by smoking status",
+        ylab = "ratio(%)",
+        args.legend = list(x = "topright"))
+
+# 다항 로지스틱 회귀분석 수행
+# 종속변수 가공: 단백뇨 유무 (0: 정상, 1: 단백뇨 있음)
+# urine_protein이 1보다 크면 1(Event), 아니면 0(Non-event)
+data1$Proteinuria_Binary <- ifelse(data1$urine_protein > 1, 1, 0)
+
+# 로지스틱 회귀분석 모델 생성 (glm 함수 사용)
+# family = binomial 필수 (이항 분포)
+# 공식: 단백뇨여부 ~ 흡연 + 나이 + 수축기혈압 + 공복혈당
+model_kidney <- glm(Proteinuria_Binary ~ label + age + systolic_bp + fasting_glucose, 
+                    data = data1, 
+                    family = binomial)
+
+# 결과 요약 (Raw Coefficients 확인)
+print("=== [로지스틱 회귀분석 요약] ===")
+summary(model_kidney)
+
+# 오즈비(Odds Ratio) 및 95% 신뢰구간 계산
+# 회귀계수(Beta)에 exp()를 취해 오즈비로 변환
+or_result <- exp(cbind(OR = coef(model_kidney), confint(model_kidney)))
+
+# 보기 좋게 출력 (소수점 4자리 반올림)
+print("=== [오즈비(Odds Ratio) 및 95% 신뢰구간] ===")
+print(round(or_result, 4))
+
+
+# 크레아티닌 다중회귀분석 수행
+# 종속변수: serum_creatinine (크레아티닌)
+# 독립변수: label (흡연 여부)
+# 통제변수: 
+#   - age (나이: 신장 기능 자연 감소 요인)
+#   - systolic_bp, fasting_glucose (고혈압/당뇨: 신장 손상 요인)
+#   - height_cm, weight_kg (중요: 성별/근육량의 대리 변수 역할)
+model_creat <- lm(serum_creatinine ~ label + age + 
+                    systolic_bp + fasting_glucose + 
+                    height_cm + weight_kg, 
+                  data = data1)
+
+# 결과 요약 출력
+print("=== [크레아티닌에 대한 다중회귀분석 결과] ===")
+summary(model_creat)
+
+# (참고) 흡연자와 비흡연자의 신체 조건 비교
+# 흡연자가 비흡연자보다 키/몸무게가 월등히 크다면, 흡연자 그룹에 남성이 많다는 간접 증거임
+print("=== [그룹별 신체 조건 평균 비교] ===")
+print(aggregate(cbind(height_cm, weight_kg) ~ label, data = data1, mean))
