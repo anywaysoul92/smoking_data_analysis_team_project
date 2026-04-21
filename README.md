@@ -15,7 +15,7 @@
 ## 📁 데이터 구조
 - `data/raw`: 원본 데이터 (smoking_health_data.csv)
 - `src/viz.py`: 시각화 공통 모듈
-- `analysis.py`: 메인 분석 
+- `analysis.py`, 'main.py': 메인 데이터 분석 파일
 
 ## 📈 데이터 분석 결론
 
