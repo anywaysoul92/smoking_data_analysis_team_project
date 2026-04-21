@@ -15,7 +15,7 @@
 ## 📁 데이터 구조
 - `data/raw`: 원본 데이터 (smoking_health_data.csv)
 - `src/viz.py`: 시각화 공통 모듈
-- `1.2_데이터분석.ipynb`: 메인 분석 노트북
+- `analysis.py`: 메인 분석 
 
 ## 📈 데이터 분석 결론
 
